@@ -1,0 +1,15 @@
+{
+  "name": "simsites",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "node-getopt": "*",
+    "when": "*",
+    "byline": "*",
+    "xml2js": "*"
+  },
+  "devDependencies": {
+     "mocha": "0.0.2",
+     "should": "~4.0.0"
+   }
+}
