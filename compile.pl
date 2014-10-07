@@ -174,11 +174,12 @@ sub procSiteEntry {
 
   return undef if (!$siteEntry->{alexa} || !$siteEntry->{sims});
 
-  $entry->{title} = $siteEntry->{page}->{title};
-  if ((!$entry->{title} || !titleOK($entry->{title})) && $siteEntry->{alexa}->{dmoz}) {
+  $entry->{title} = $siteEntry->{page}->{title} if (titleOK($siteEntry->{page}->{title}));
+
+  if (!$entry->{title} && $siteEntry->{alexa}->{dmoz}) {
     $entry->{title} = $siteEntry->{alexa}->{dmoz}->{title}
   }
-  return undef if (!$entry->{title} || $entry->{title} =~ /403 Forbidden/);
+  return undef if (!$entry->{title});
 
   $entry->{description} = $siteEntry->{page}->{description};
   if (!$entry->{description} && $siteEntry->{alexa}->{dmoz}) {
