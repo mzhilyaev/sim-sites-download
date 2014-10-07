@@ -46,11 +46,14 @@ my $badBegins = {
 
 my $help;
 my $dump;
+my $relatedLimit = 1000;
+my $simScoreLimit = 0.9;
 
 if(
    !GetOptions (
             "help|h" => \$help ,
             "dump|d" => \$dump ,
+            "rlimit|r=i" => \$relatedLimit ,
    )
    || defined($help)
 ) {
@@ -75,6 +78,7 @@ my $outDir = @ARGV[3];
 my $siteEntry = {};
 my $sites = {};
 my $titleMap = {};
+my $siteCount = 0;
 
 sub readFile {
   my $file = shift;
@@ -155,7 +159,7 @@ sub readSims {
   my $jsn = decode_json($line1);
   $siteEntry->{sims}->{category} = {name => $jsn->{Category}, rank => $jsn->{CategoryRank}};
   $jsn = decode_json($line2);
-  $siteEntry->{sims}->{related} = [map { {url => $_->{Url}, score => $_->{Score} + 0 } } @{$jsn->{SimilarSites}}];
+  $siteEntry->{sims}->{related} = [map { {url => $_->{Url}, score => $_->{Score} + 0 } } grep {$_->{Score} > $simScoreLimit} @{$jsn->{SimilarSites}}];
   close(FILE);
 }
 
@@ -203,6 +207,10 @@ sub procSiteEntry {
 
   $entry->{category} = $siteEntry->{sims}->{category}->{name};
 
+  if ($siteCount < $relatedLimit && scalar(@{$siteEntry->{sims}->{related}})>0) {
+    $entry->{related} = [ map {$_->{url}} @{$siteEntry->{sims}->{related}}];
+  }
+
   return $entry;
 }
 
@@ -231,6 +239,7 @@ while(<STDIN>) {
   my $site = $_;
   chomp($site);
   procSite($site);
+  $siteCount ++;
 }
 
 if ($dump) {
