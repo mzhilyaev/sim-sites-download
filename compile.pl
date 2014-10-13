@@ -473,9 +473,7 @@ my $badTitles = {
 my $badBegins = {
  "406" => 1,
  "404" => 1,
- "404" => 1,
- "404" => 1,
- "404" => 1,
+ "403" => 1,
  "401" => 1,
  "503" => 1,
  "500" => 1,
@@ -547,9 +545,14 @@ sub print_jsonify {
       print $val;
     }
     else {
+      #### remove control chars
+      $val =~ s/[\000-\037]//g;
+      #### encode free floating special chars
+      $val = encode_entities($val, "\"'<>&");
       ## put escaped chars back
       $val =~ s/_AND_SPECIAL_CHAR_HASH_BEG([0-9]+)_AND_SPECIAL_CHAR_HASH_END/&#\1;/g;
       $val =~ s/_AND_SPECIAL_CHAR_BEG([a-zA-Z0-9]+)_AND_SPECIAL_CHAR_END/&\1;/g;
+      ### replace \ char
       $val =~ s/\\/&#92;/g;
       print '"',$val,'"';
     }
@@ -682,18 +685,28 @@ sub procSiteEntry {
   my $site = shift;
   my $entry = {site => $site};
 
-  return undef if (!$siteEntry->{alexa}
-                   || !$siteEntry->{sims}
-                   || !$siteEntry->{sims}->{category}
-                   || !$siteEntry->{alexa}->{country}
-                   || !$codes->{$siteEntry->{alexa}->{country}->{CODE}});
+  if (!$siteEntry->{alexa}
+      || !$siteEntry->{sims}
+      || !$siteEntry->{sims}->{category}
+      || !$siteEntry->{alexa}->{country}
+      || !$codes->{$siteEntry->{alexa}->{country}->{CODE}}) {
+
+      print STDERR Dumper($siteEntry);
+      print STDERR "skipping $site - empty conditions\n";
+      return undef;
+  }
 
   $entry->{title} = $siteEntry->{page}->{title} if (titleOK($siteEntry->{page}->{title}));
 
-  if (!$entry->{title} && $siteEntry->{alexa}->{dmoz}) {
-    $entry->{title} = $siteEntry->{alexa}->{dmoz}->{title}
+  if ($siteEntry->{alexa}->{dmoz} && $siteEntry->{alexa}->{dmoz}->{title}) {
+    $entry->{title} = $siteEntry->{alexa}->{dmoz}->{title};
   }
-  return undef if (!$entry->{title});
+
+  if (!$entry->{title}) {
+    print STDERR Dumper($siteEntry);
+    print STDERR "skipping $site - empty title\n";
+    return undef;
+  }
 
   $entry->{description} = $siteEntry->{page}->{description};
   if (!$entry->{description} && $siteEntry->{alexa}->{dmoz}) {
@@ -731,11 +744,14 @@ sub procSite {
   }
   else {
     my $entry = procSiteEntry($site);
-    if ($entry && !$titleMap->{$entry->{title}}) {
-      $titleMap->{$entry->{title}} = 1;
+    if (defined($entry) && !$titleMap->{$entry->{title}}) {
+      $titleMap->{$entry->{title}} = $site;
       print "$comaPrefix\"$site\": ";
       print_jsonify($entry);
       $comaPrefix = ",";
+    }
+    elsif (defined($entry)) {
+      print STDERR "skipping $site - duplicate title with site $titleMap->{$entry->{title}}: $entry->{title}\n";
     }
   }
 
@@ -748,6 +764,7 @@ if ($dump) {
 while(<STDIN>) {
   my $site = $_;
   chomp($site);
+  print STDERR "processing site $site\n";
   procSite($site);
   $siteCount ++;
 }
